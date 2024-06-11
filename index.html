@@ -91,9 +91,15 @@
                     var nodeRequest = new ROSLIB.ServiceRequest({ node: node });
 
                     nodeDetailsClient.callService(nodeRequest, function(nodeResult) {
-                        var subscribedTopics = nodeResult.subscribing.join(', ');
-                        var publishedTopics = nodeResult.publishing.join(', ');
-                        var services = nodeResult.services.join(', ');
+                        // Filter out '/rosout' from subscribed and published topics
+                        var subscribedTopics = nodeResult.subscribing.filter(topic => topic !== '/rosout').join(', ');
+                        var publishedTopics = nodeResult.publishing.filter(topic => topic !== '/rosout').join(', ');
+
+                        // Filter out services ending with get_loggers or set_logger_level
+                        var filteredServices = nodeResult.services.filter(service => {
+                            return !service.endsWith('get_loggers') && !service.endsWith('set_logger_level');
+                        });
+                        var services = filteredServices.join(', ');
 
                         var row = document.createElement('tr');
                         var nodeNameCell = document.createElement('td');
