@@ -80,14 +80,15 @@
             var request = new ROSLIB.ServiceRequest();
 
             nodesClient.callService(request, function(result) {
-                var nodesTableBody = document.getElementById('nodesTable').querySelector('tbody');
-                nodesTableBody.innerHTML = '';
+                // Filter and sort nodes
+                var filteredNodes = result.nodes.filter(function(node) {
+                    return !blacklist.includes(node);
+                }).sort();
 
-                result.nodes.forEach(function(node) {
-                    if (blacklist.includes(node)) {
-                        return; // Skip blacklisted nodes
-                    }
+                var nodesDetails = [];
 
+                // Fetch details for each node
+                filteredNodes.forEach(function(node, index) {
                     var nodeRequest = new ROSLIB.ServiceRequest({ node: node });
 
                     nodeDetailsClient.callService(nodeRequest, function(nodeResult) {
@@ -101,23 +102,41 @@
                         });
                         var services = filteredServices.join(', ');
 
-                        var row = document.createElement('tr');
-                        var nodeNameCell = document.createElement('td');
-                        var subscribedTopicsCell = document.createElement('td');
-                        var publishedTopicsCell = document.createElement('td');
-                        var servicesCell = document.createElement('td');
+                        nodesDetails.push({
+                            node: node,
+                            subscribedTopics: subscribedTopics,
+                            publishedTopics: publishedTopics,
+                            services: services
+                        });
 
-                        nodeNameCell.textContent = node;
-                        subscribedTopicsCell.textContent = subscribedTopics;
-                        publishedTopicsCell.textContent = publishedTopics;
-                        servicesCell.textContent = services;
+                        // Only render the table after all details are fetched
+                        if (nodesDetails.length === filteredNodes.length) {
+                            // Sort nodesDetails by node name
+                            nodesDetails.sort((a, b) => a.node.localeCompare(b.node));
 
-                        row.appendChild(nodeNameCell);
-                        row.appendChild(subscribedTopicsCell);
-                        row.appendChild(publishedTopicsCell);
-                        row.appendChild(servicesCell);
+                            var nodesTableBody = document.getElementById('nodesTable').querySelector('tbody');
+                            nodesTableBody.innerHTML = '';
 
-                        nodesTableBody.appendChild(row);
+                            nodesDetails.forEach(function(nodeDetail) {
+                                var row = document.createElement('tr');
+                                var nodeNameCell = document.createElement('td');
+                                var subscribedTopicsCell = document.createElement('td');
+                                var publishedTopicsCell = document.createElement('td');
+                                var servicesCell = document.createElement('td');
+
+                                nodeNameCell.textContent = nodeDetail.node;
+                                subscribedTopicsCell.textContent = nodeDetail.subscribedTopics;
+                                publishedTopicsCell.textContent = nodeDetail.publishedTopics;
+                                servicesCell.textContent = nodeDetail.services;
+
+                                row.appendChild(nodeNameCell);
+                                row.appendChild(subscribedTopicsCell);
+                                row.appendChild(publishedTopicsCell);
+                                row.appendChild(servicesCell);
+
+                                nodesTableBody.appendChild(row);
+                            });
+                        }
                     });
                 });
             }, function(error) {
