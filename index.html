@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS Nodes and Topics Information</title>
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>ROS Nodes and Topics Information</h1>
+    <table id="nodesTable">
+        <thead>
+            <tr>
+                <th>Node</th>
+                <th>Subscribed Topics</th>
+                <th>Published Topics</th>
+                <th>Services</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script type="text/javascript">
+        // Create a connection to the rosbridge WebSocket server.
+        var ros = new ROSLIB.Ros({
+            url: 'ws://localhost:9090'
+        });
+
+        // Connection error handler
+        ros.on('error', function(error) {
+            console.log('Error connecting to websocket server: ', error);
+            document.body.insertAdjacentHTML('beforeend', '<p style="color:red;">Error connecting to websocket server.</p>');
+        });
+
+        // Connection established handler
+        ros.on('connection', function() {
+            console.log('Connected to websocket server.');
+
+            // Define the blacklist
+            var blacklist = ['/rosbridge_websocket', '/rosapi', '/rosout'];
+
+            // Get the list of nodes
+            var nodesClient = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/nodes',
+                serviceType: 'rosapi/Nodes'
+            });
+
+            var nodeDetailsClient = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/node_details',
+                serviceType: 'rosapi/NodeDetails'
+            });
+
+            var request = new ROSLIB.ServiceRequest();
+
+            nodesClient.callService(request, function(result) {
+                var nodesTableBody = document.getElementById('nodesTable').querySelector('tbody');
+                nodesTableBody.innerHTML = '';
+
+                result.nodes.forEach(function(node) {
+                    if (blacklist.includes(node)) {
+                        return; // Skip blacklisted nodes
+                    }
+
+                    var nodeRequest = new ROSLIB.ServiceRequest({ node: node });
+
+                    nodeDetailsClient.callService(nodeRequest, function(nodeResult) {
+                        var subscribedTopics = nodeResult.subscribing.join(', ');
+                        var publishedTopics = nodeResult.publishing.join(', ');
+                        var services = nodeResult.services.join(', ');
+
+                        var row = document.createElement('tr');
+                        var nodeNameCell = document.createElement('td');
+                        var subscribedTopicsCell = document.createElement('td');
+                        var publishedTopicsCell = document.createElement('td');
+                        var servicesCell = document.createElement('td');
+
+                        nodeNameCell.textContent = node;
+                        subscribedTopicsCell.textContent = subscribedTopics;
+                        publishedTopicsCell.textContent = publishedTopics;
+                        servicesCell.textContent = services;
+
+                        row.appendChild(nodeNameCell);
+                        row.appendChild(subscribedTopicsCell);
+                        row.appendChild(publishedTopicsCell);
+                        row.appendChild(servicesCell);
+
+                        nodesTableBody.appendChild(row);
+                    });
+                });
+            }, function(error) {
+                console.log('Error calling service: ', error);
+                document.body.insertAdjacentHTML('beforeend', '<p style="color:red;">Error calling service.</p>');
+            });
+        });
+
+        // Connection closed handler
+        ros.on('close', function() {
+            console.log('Connection to websocket server closed.');
+            document.body.insertAdjacentHTML('beforeend', '<p style="color:red;">Connection to websocket server closed.</p>');
+        });
+    </script>
+</body>
+</html>
